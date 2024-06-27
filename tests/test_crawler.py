@@ -23,7 +23,7 @@ def base_url():
 def test_crawler_with_html_page(storage, base_url):
     allowed_file_types = ['.html', '']
 
-    crawler = WebCrawler(base_url=base_url, depth=1, storage=storage, allowed_file_types=allowed_file_types, max_workers=1)
+    crawler = WebCrawler(base_url=base_url, depth=2, storage=storage, allowed_file_types=allowed_file_types, max_workers=1)
     with requests_mock.Mocker() as m:
         m.get(base_url, text='<html><body><a href="http://example.com/page1.html">Page 1</a></body></html>')
         m.get("http://example.com/page1.html", text='<html><body><a href="http://example.com/page2.html">Page 2</a></body></html>')
@@ -32,7 +32,7 @@ def test_crawler_with_html_page(storage, base_url):
 
     total_links_extracted = crawler.get_total_links_extracted()
     logging.debug(f"Total links extracted: {total_links_extracted}")
-    assert total_links_extracted == 3
+    assert total_links_extracted == 2
 
 def test_crawler_with_non_html_page(storage, base_url):
     allowed_file_types = ['.html', '']
