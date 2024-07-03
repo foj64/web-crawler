@@ -181,7 +181,7 @@ This script will train a Linear Regression model and save it along with the vect
 
 ### To run local tests
 
-1. Upload the local server for testing with page templates
+1. Run the local server for testing with page templates
 2. Run the tests:
     ```sh
     python tests/local_server/local_server.py
