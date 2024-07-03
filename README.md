@@ -19,20 +19,20 @@ This project implements a web crawler. The crawler collects data from URLs, stor
 
 1. Clone the repository:
     ```sh
-    git clone https://github.com/yourusername/web-crawler-ml.git
-    cd web-crawler-ml
+    git clone https://github.com/foj64/web-crawler.git
+    cd web-crawler
     ```
 
 2. Build the Docker image:
     ```sh
-    docker build -t web-crawler-ml .
+    docker build -t web-crawler .
     ```
 
 ### Running the Docker Container
 
 1. Start the container using Docker Compose:
     ```sh
-    docker-compose up -d
+    docker-compose up
     ```
 
 2. Verify the container is running:
@@ -45,6 +45,8 @@ This project implements a web crawler. The crawler collects data from URLs, stor
 The API will be available at `http://localhost:8000`.
 
 ## API Endpoints
+
+Swagger at `http://localhost:8000/docs`
 
 ### Create Knowledge Base
 
@@ -144,7 +146,7 @@ Get the status of the current or last execution.
 
 Estimate the number of pages to be extracted from a URL.
 
-- **Endpoint**: `/estimate-pages`
+- **Endpoint**: `/predict`
 - **Method**: `POST`
 - **Request Body**:
     ```json
@@ -173,7 +175,18 @@ The machine learning model is trained using historical data collected by the cra
     python train_model.py
     ```
 
-This script will train a RandomForestRegressor model and save it along with the vectorizer for the page content.
+This script will train a Linear Regression model and save it along with the vectorizer for the page content.
+
+## Tests
+
+### To run local tests
+
+1. Upload the local server for testing with page templates
+2. Run the tests:
+    ```sh
+    python tests/local_server/local_server.py
+    pytest -s tests/test_crawler_local_server.py
+    ```
 
 ## Contributing
 
