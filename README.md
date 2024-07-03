@@ -1,6 +1,6 @@
-# Web Crawler
+# Web Crawler with Machine Learning
 
-This project implements a web crawler. The crawler collects data from URLs, stores the history in an SQLite database, and provides RESTful APIs for creating knowledge bases, adding URLs, and estimating the number of pages.
+This project implements a web crawler. The crawler collects data from URLs, stores the history in an SQLite database, and provides RESTful APIs for creating knowledge bases, adding URLs, and estimating the number of pages. The machine learning model is trained using historical data collected by the crawler.
 
 ## Features
 
@@ -12,6 +12,10 @@ This project implements a web crawler. The crawler collects data from URLs, stor
 
 - Docker
 - Docker Compose
+
+## Architecture Diagram
+
+![Architecture Diagram](https://lucid.app/publicSegments/view/1273c30c-d058-4c32-b772-394f0c011a27/image.png)
 
 ## Build and Run
 
