@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
-from .models import Page, SessionLocal
+from models.page import Page
+from models.database import SessionLocal
 
 class Storage:
     def __init__(self):
@@ -31,4 +32,10 @@ class Storage:
     def clear_all_pages(self):
         self.db.query(Page).delete()
         self.db.commit()
+
+    def save_history(self, history):
+        self.db.add(history)
+        self.db.commit()
+        self.db.refresh(history)
+        return history
         

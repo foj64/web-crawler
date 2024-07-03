@@ -8,3 +8,5 @@ apscheduler
 pytest
 requests-mock
 schedule
+spacy
+joblib
