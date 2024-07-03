@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from app.routes import router as api_router
-from crawler.models import Base, engine
+from models.database import Base, engine
 
 # Inicializar o banco de dados
 Base.metadata.create_all(bind=engine)

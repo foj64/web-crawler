@@ -6,7 +6,11 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 import threading
 import logging
+
+from models.history import History
+from .storage import Storage
 from config import MAX_LINKS_PER_PAGE, DELAY, ALLOWED_FILE_TYPES, MAX_WORKERS  # Importar configurações
+from ml.predict import classify_text
 
 # Configurar logging para console e arquivo
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s',
@@ -14,16 +18,16 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %
                         logging.StreamHandler(),  # Exibir logs no console
                         logging.FileHandler('crawler.log', mode='w')  # Salvar logs em um arquivo
                     ])
-
+    
 class WebCrawler:
     # Variável de classe compartilhada entre todas as instâncias
     visited_urls = set()
     lock = threading.Lock()  # Lock para sincronização de threads
 
-    def __init__(self, base_url, depth, storage, allowed_file_types=ALLOWED_FILE_TYPES, max_workers=MAX_WORKERS):
+    def __init__(self, base_url, depth, allowed_file_types=ALLOWED_FILE_TYPES, max_workers=MAX_WORKERS):
         self.base_url = base_url
         self.depth = depth
-        self.storage = storage
+        self.storage = Storage()
         self.allowed_file_types = allowed_file_types
         self.urls_to_visit = [(base_url, 0)]
         self.domain = urlparse(base_url).netloc
@@ -32,7 +36,8 @@ class WebCrawler:
         self.delay = DELAY
         self.max_workers = max_workers
         self.total_links_extracted = 0  # Armazenar o número total de links extraídos
-        self.processed_urls = []  # Armazenar URLs processadas
+        self.processed_urls = []
+
 
     def _init_robot_parser(self, base_url):
         logging.debug(f"Initializing robot parser for {base_url}")
@@ -43,13 +48,12 @@ class WebCrawler:
         return robot_parser
 
     def can_fetch(self, url):
-        user_agent = "*"  # Nome do agente de usuário
+        user_agent = "*" 
         can_fetch = self.robot_parser.can_fetch(user_agent, url)
         logging.debug(f"Can fetch {url}: {can_fetch}")
         return can_fetch
 
     def is_allowed_file_type(self, url):
-        # Verifica se a URL é do tipo permitido
         parsed_url = urlparse(url)
         path = parsed_url.path
         is_allowed = any(path.endswith(ext) for ext in self.allowed_file_types)
@@ -62,7 +66,6 @@ class WebCrawler:
             response = requests.get(url, timeout=10)
             response.raise_for_status()
             if 'text/html' in response.headers['Content-Type']:
-                logging.debug(f"Fetched content for {url}: {response.text[:100]}...")
                 return response.text
         except requests.exceptions.RequestException as e:
             logging.error(f"Failed to fetch {url}: {e}")
@@ -111,6 +114,15 @@ class WebCrawler:
                 self.processed_urls.append((url, html_content))
             if current_depth < self.depth:
                 extracted_links = self.extract_links(html_content, current_depth + 1)
+                # Extrair área de atuação e armazenar histórico
+                area_atuacao = classify_text(html_content)
+                history_entry = History(
+                url=url,
+                profundidade=current_depth + 1,
+                paginas_extraidas=0,
+                area_atuacao=area_atuacao
+                )
+                self.storage.save_history(history_entry)
                 with WebCrawler.lock:
                     self.total_links_extracted += len(extracted_links)
                 return extracted_links
@@ -140,5 +152,5 @@ class WebCrawler:
             self.storage.save_page(url, content)
 
     def get_total_links_extracted(self):
-        return self.total_links_extracted
+        return len(self.visited_urls)
     

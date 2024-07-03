@@ -3,9 +3,10 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
 import threading
-from app.scheduler import schedule_task, run_crawler
-from app.data import knowledge_bases
-from crawler.storage import Storage
+from app.scheduler import knowledge_bases, schedule_task, run_crawler, get_status
+import requests
+from bs4 import BeautifulSoup
+from ml.predict import classify_text, predict_pages
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -22,6 +23,10 @@ class CreateRequest(BaseModel):
 class AddUrlsRequest(BaseModel):
     nome: str
     urls: List[str]
+
+class PredictRequest(BaseModel):
+    url: str
+    profundidade: int
 
 @router.post("/create")
 def create_knowledge_base(request: CreateRequest):
@@ -70,8 +75,41 @@ def get_knowledge_base_details(nome: str):
         raise HTTPException(status_code=404, detail="Base de conhecimento não encontrada")
     return knowledge_bases[nome]
 
-@router.get("/status/{nome}")
-def get_knowledge_base_status(nome: str):
-    if nome not in knowledge_bases:
-        raise HTTPException(status_code=404, detail="Base de conhecimento não encontrada")
-    return {"status": knowledge_bases[nome]['status']}
+@router.get("/status")
+def get_crawl_status():
+    status, paginas_extraidas, paginas_totais = get_status()
+    return {
+        "status": status,
+        "paginas_extraidas": paginas_extraidas,
+        "paginas_totais": paginas_totais
+    }
+
+
+@router.post("/predict")
+def predict_pages_route(request: PredictRequest):
+    url = request.url
+    profundidade = request.profundidade
+
+    # Fazer uma requisição para obter o conteúdo da página
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+    except requests.RequestException as e:
+        raise HTTPException(status_code=400, detail=f"Erro ao acessar a URL: {e}")
+
+    # Analisar o conteúdo da página para determinar a área de atuação
+    soup = BeautifulSoup(response.text, 'html.parser')
+    content = soup.get_text()
+
+    # Classificar o conteúdo usando spaCy
+    area_atuacao = classify_text(content)
+
+    # Fazer a previsão usando o modelo treinado
+    try:
+        predicted_pages = predict_pages(area_atuacao, profundidade)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+    return {"predicted_pages": predicted_pages,
+            "area_atuacao": area_atuacao,
+    }
