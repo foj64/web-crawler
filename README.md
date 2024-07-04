@@ -29,7 +29,7 @@ This project implements a web crawler. The crawler collects data from URLs, stor
 
 2. Build the Docker image:
     ```sh
-    docker build -t web-crawler .
+    docker-compose build
     ```
 
 ### Running the Docker Container

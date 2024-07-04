@@ -8,7 +8,7 @@ WORKDIR /app
 COPY requirements.txt .
 
 # Instale as dependências do projeto
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install -r requirements.txt
 RUN python -m spacy download en_core_web_sm
 
 # Copie todo o conteúdo do diretório atual para o diretório de trabalho

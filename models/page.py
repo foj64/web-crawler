@@ -1,5 +1,7 @@
 from sqlalchemy import Column, Integer, String, Text, Boolean
-from .database import Base
+import os, sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from models.database import Base
 
 class Page(Base):
     __tablename__ = 'pages'

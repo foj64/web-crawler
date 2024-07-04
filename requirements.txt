@@ -10,3 +10,5 @@ requests-mock
 schedule
 spacy
 joblib
+scikit-learn
+pandas
