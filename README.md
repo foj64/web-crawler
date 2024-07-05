@@ -7,6 +7,7 @@ This project implements a web crawler. The crawler collects data from URLs, stor
 - Crawl websites and extract pages
 - Store crawl history in SQLite
 - RESTful APIs for managing and using the crawler
+- Estimate the number of pages to be extracted from a URL using Machine Learning
 
 ## Prerequisites
 
@@ -16,6 +17,20 @@ This project implements a web crawler. The crawler collects data from URLs, stor
 ## Architecture Diagram
 
 ![Architecture Diagram](https://lucid.app/publicSegments/view/1273c30c-d058-4c32-b772-394f0c011a27/image.png)
+
+## Machine Learning Model
+
+The machine learning model is trained using historical data collected by the crawler. It uses features extracted from the URL and the content of the page to estimate the number of pages to be extracted. Based on the page content, the model uses text classification to determine the site's area of ​​activity and with the area of ​​activity and historical extraction data, the model predicts the number of pages.
+
+### Training the Model
+
+1. Collect data by running the crawler and storing the history.
+2. Train the model using the `train_model.py` script:
+    ```sh
+    python train_model.py
+    ```
+
+This script will train a Linear Regression model and save it along with the vectorizer for the page content.
 
 ## Build and Run
 
@@ -61,7 +76,7 @@ Create a new knowledge base and start crawling immediately or schedule it for la
 - **Request Body**:
     ```json
     {
-        "nome": "example",
+        "nome": "Base 1",
         "urls": ["http://example.com"],
         "profundidade": 2,
         "agendamento": null,
@@ -84,8 +99,8 @@ Add new URLs to an existing knowledge base and start processing them immediately
 - **Request Body**:
     ```json
     {
-        "nome": "example",
-        "urls": ["http://example.com/new-page"]
+        "nome": "Base 1",
+        "urls": ["http://example2.com"]
     }
     ```
 - **Response**:
@@ -104,7 +119,7 @@ List all knowledge bases.
 - **Response**:
     ```json
     {
-        "example": {
+        "Base 1": {
             "urls": ["http://example.com"],
             "profundidade": 2,
             "agendamento": null,
@@ -167,20 +182,6 @@ Estimate the number of pages to be extracted from a URL.
     }
     ```
 
-## Machine Learning Model
-
-The machine learning model is trained using historical data collected by the crawler. It uses features extracted from the URL and the content of the page to estimate the number of pages to be extracted.
-
-### Training the Model
-
-1. Collect data by running the crawler and storing the history.
-2. Train the model using the `train_model.py` script:
-    ```sh
-    python train_model.py
-    ```
-
-This script will train a Linear Regression model and save it along with the vectorizer for the page content.
-
 ## Tests
 
 ### To run local tests
@@ -199,5 +200,8 @@ Contributions are welcome! Please open an issue or submit a pull request for any
 ## License
 
 This project is licensed under the MIT License.
+
+Thank you all!
+Filipe Oliveira João
 
 ---
