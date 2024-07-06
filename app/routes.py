@@ -3,7 +3,8 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
 import threading
-from app.scheduler import knowledge_bases, schedule_task, run_crawler, get_status
+from app.scheduler import knowledge_bases, schedule_task, run_crawler
+from app.state import current_status
 import requests
 from bs4 import BeautifulSoup
 from ml.predict import classify_text, predict_pages
@@ -77,11 +78,37 @@ def get_knowledge_base_details(nome: str):
 
 @router.get("/status")
 def get_crawl_status():
-    status, paginas_extraidas, paginas_totais = get_status()
+    # Obter a URL e a profundidade atuais do estado global
+    current_url = current_status.get('current_url')
+    profundidade = current_status.get('depth', 1)  # Usar profundidade padrão de 3 se não estiver definida
+
+    if not current_url:
+        return {"status": "idle", "paginas_extraidas": 0, "paginas_totais": 0}
+
+    # Fazer a requisição para obter o conteúdo da página
+    try:
+        response = requests.get(current_url)
+        response.raise_for_status()
+    except requests.RequestException as e:
+        raise HTTPException(status_code=400, detail=f"Erro ao acessar a URL: {e}")
+
+    # Analisar o conteúdo da página para determinar a área de atuação
+    soup = BeautifulSoup(response.text, 'html.parser')
+    content = soup.get_text()
+
+    # Classificar o conteúdo usando spaCy
+    area_atuacao = classify_text(content)
+
+    # Fazer a previsão usando o modelo treinado
+    try:
+        predicted_pages = predict_pages(area_atuacao, profundidade)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
     return {
-        "status": status,
-        "paginas_extraidas": paginas_extraidas,
-        "paginas_totais": paginas_totais
+        "status": current_status['status'],
+        "paginas_extraidas": current_status['pages_extracted'],
+        "paginas_totais": predicted_pages
     }
 
 
@@ -110,6 +137,6 @@ def predict_pages_route(request: PredictRequest):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     
-    return {"predicted_pages": predicted_pages,
+    return {"paginas_estimadas": predicted_pages,
             "area_atuacao": area_atuacao,
     }

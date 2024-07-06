@@ -11,6 +11,7 @@ from models.history import History
 from .storage import Storage
 from config import MAX_LINKS_PER_PAGE, DELAY, ALLOWED_FILE_TYPES, MAX_WORKERS  # Importar configurações
 from ml.predict import classify_text
+from app.state import update_status
 
 # Configurar logging para console e arquivo
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s',
@@ -85,6 +86,7 @@ class WebCrawler:
                         logging.info(f"URL já visitada: {url}")
                         continue
                     WebCrawler.visited_urls.add(url)
+                    update_status(pages_extracted=len(self.visited_urls))
 
                 # Enviar a tarefa para o executor
                 future = executor.submit(self.process_url, url, current_depth)

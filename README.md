@@ -163,7 +163,7 @@ Get the status of the current or last execution.
 
 ### Estimate Pages
 
-Estimate the number of pages to be extracted from a URL.
+Estimate the number of pages to be extracted from a URL and the area of ​​activity.
 
 - **Endpoint**: `/predict`
 - **Method**: `POST`
@@ -177,8 +177,8 @@ Estimate the number of pages to be extracted from a URL.
 - **Response**:
     ```json
     {
-        "url": "http://example.com",
-        "estimated_pages": 50
+        "paginas_estimadas": "10",
+        "area_atuacao": "news"
     }
     ```
 
