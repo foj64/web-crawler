@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 import urllib.robotparser
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 import logging
 
@@ -21,13 +21,13 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %
                     ])
     
 class WebCrawler:
-    # Variável de classe compartilhada entre todas as instâncias
     visited_urls = set()
     lock = threading.Lock()  # Lock para sincronização de threads
 
     def __init__(self, base_url, depth, allowed_file_types=ALLOWED_FILE_TYPES, max_workers=MAX_WORKERS):
         self.base_url = base_url
         self.depth = depth
+        self.current_depth = 0
         self.storage = Storage()
         self.allowed_file_types = allowed_file_types
         self.urls_to_visit = [(base_url, 0)]
@@ -36,7 +36,6 @@ class WebCrawler:
         self.max_links_per_page = MAX_LINKS_PER_PAGE
         self.delay = DELAY
         self.max_workers = max_workers
-        self.total_links_extracted = 0  # Armazenar o número total de links extraídos
         self.processed_urls = []
 
 
@@ -51,10 +50,12 @@ class WebCrawler:
     def can_fetch(self, url):
         user_agent = "*" 
         can_fetch = self.robot_parser.can_fetch(user_agent, url)
-        logging.debug(f"Can fetch {url}: {can_fetch}")
         return can_fetch
 
     def is_allowed_file_type(self, url):
+        if not self.can_fetch(url):
+            logging.info(f"Blocked by robots.txt: {url}")
+            return False
         parsed_url = urlparse(url)
         path = parsed_url.path
         is_allowed = any(path.endswith(ext) for ext in self.allowed_file_types)
@@ -74,62 +75,50 @@ class WebCrawler:
 
     def crawl(self):
         logging.info("Starting crawl")
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            while self.urls_to_visit:
-                url, current_depth = self.urls_to_visit.pop(0)
-                if current_depth > self.depth:
-                    continue
+        # Processar a URL inicial
+        initial_url, initial_depth = self.urls_to_visit.pop(0)
+        if initial_url not in self.visited_urls:
+            new_urls = self.process_and_extract(initial_url, initial_depth)
+            self.urls_to_visit.extend(new_urls)
+            self.visited_urls.add(initial_url)
+            update_status(pages_extracted=len(self.visited_urls))
 
-                # Verificar se a URL já foi visitada
-                with WebCrawler.lock:
-                    if url in WebCrawler.visited_urls:
-                        logging.info(f"URL já visitada: {url}")
-                        continue
-                    WebCrawler.visited_urls.add(url)
+            while self.current_depth <= self.depth and self.urls_to_visit:
+                self.process_in_threads()
+                self.current_depth += 1
+        
+        self.save_processed_urls()
+        
+    def process_in_threads(self):
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            urls_to_process = [(url, url_depth) for url, url_depth in self.urls_to_visit if url_depth <= self.depth and url not in self.visited_urls]
+            self.urls_to_visit = [item for item in self.urls_to_visit if item not in urls_to_process]
+            
+            futures = {executor.submit(self.process_and_extract, url, depth): url for url, depth in urls_to_process}
+                
+            for future in as_completed(futures):
+                url = futures.pop(future)
+                try:
+                    new_urls = future.result()
+                    self.urls_to_visit.extend(new_urls)
+                except Exception as e:
+                    print(f"URL failed: {url} with exception {e}")
+                finally:
                     update_status(pages_extracted=len(self.visited_urls))
 
-                # Enviar a tarefa para o executor
-                future = executor.submit(self.process_url, url, current_depth)
-                try:
-                    result = future.result()
-                    if result:
-                        with WebCrawler.lock:  # Garantir que o acesso a self.urls_to_visit é thread-safe
-                            self.urls_to_visit.extend(result)
-                except Exception as e:
-                    logging.error(f"Error processing {url}: {e}")
-
-                time.sleep(self.delay)  # Respeitar delay entre requisições
-
-        # Salvar URLs processadas no banco de dados após a conclusão
-        self.save_processed_urls()
-
-    def process_url(self, url, current_depth):
-        logging.info(f"Processing URL: {url} at depth: {current_depth}")
-
-        if not self.can_fetch(url):
-            logging.info(f"Blocked by robots.txt: {url}")
-            return []
-
-        html_content = self.fetch_url(url)
-        if html_content:
-            with WebCrawler.lock:
-                self.processed_urls.append((url, html_content))
+    def process_and_extract(self, url, current_depth):
+        new_urls = []
+        try:
+            content = self.fetch_url(url)
+            self.processed_urls.append((url, content))
+            self.visited_urls.add(url)
+            
             if current_depth < self.depth:
-                extracted_links = self.extract_links(html_content, current_depth + 1)
-                # Extrair área de atuação e armazenar histórico
-                area_atuacao = classify_text(html_content)
-                history_entry = History(
-                url=url,
-                profundidade=current_depth + 1,
-                paginas_extraidas=0,
-                area_atuacao=area_atuacao
-                )
-                self.storage.save_history(history_entry)
-                with WebCrawler.lock:
-                    self.total_links_extracted += len(extracted_links)
-                return extracted_links
-        return []
-
+                new_urls = self.extract_links(content, current_depth)
+        except Exception as e:
+            print(f"Failed to fetch {url}: {e}")
+        return new_urls
+    
     def extract_links(self, html, current_depth):
         logging.info(f"Extracting links at depth: {current_depth}")
         soup = BeautifulSoup(html, 'html.parser')
@@ -143,7 +132,7 @@ class WebCrawler:
             if parsed_href.netloc == self.domain and self.is_allowed_file_type(href):
                 with WebCrawler.lock:
                     if href not in WebCrawler.visited_urls:
-                        links.append((href, current_depth))
+                        links.append((href, current_depth+1))
                         links_extracted += 1
         logging.info(f"Extracted {links_extracted} links")
         return links
@@ -154,5 +143,5 @@ class WebCrawler:
             self.storage.save_page(url, content)
 
     def get_total_links_extracted(self):
-        return len(self.visited_urls)
+        return len(self.processed_urls)
     
